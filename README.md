@@ -108,6 +108,14 @@ Verify with `claude mcp list`.
 - **Project config** — add JSON to `.cursor/mcp.json` in your project root
 - **Global config** — add JSON to `~/.cursor/mcp.json`
 
+### ChatGPT
+
+Remote only — paste your self-hosted URL (`Settings → Connectors → Add`):
+
+```
+https://<DOMAIN>/<MCP_SECRET>/mcp
+```
+
 ### OpenCode
 
 `~/.config/opencode/opencode.json` — note the key is `mcp`, env is `environment`:
