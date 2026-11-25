@@ -8,6 +8,7 @@ import (
 	"strconv"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
+	"golang.org/x/sync/errgroup"
 )
 
 const mealDesc = "Meal type: breakfast, lunch, dinner or other"
@@ -140,9 +141,36 @@ func handleLogMeal(s *api.Server, ctx context.Context, req *mcp.CallToolRequest,
 		return api.ToolResult(map[string]any{"error": map[string]any{"message": err.Error()}}, true)
 	}
 	daysStr := strconv.FormatInt(days, 10)
+	// Reads (food.get) run in parallel under a small cap; writes stay
+	// sequential — bursts trip the API call limits.
+	type resolution struct {
+		food *foodInfo
+		err  string
+	}
+	resolved := make([]resolution, len(in.Items))
+	g, gctx := errgroup.WithContext(ctx)
+	g.SetLimit(4)
+	for i, item := range in.Items {
+		if item.ServingID != nil && item.FoodEntryName != nil {
+			continue // fast path: no read needed
+		}
+		g.Go(func() error {
+			data, _ := s.PublicGET(gctx, "/food/v6", map[string]string{"food_id": strconv.Itoa(item.FoodID)})
+			food := foodFromGet(data)
+			if food == nil {
+				resolved[i] = resolution{err: "food not found"}
+				return nil
+			}
+			resolved[i] = resolution{food: food}
+			return nil
+		})
+	}
+	if err := g.Wait(); err != nil {
+		return api.ToolResult(map[string]any{"error": map[string]any{"message": err.Error()}}, true)
+	}
 	var created []any
 	var failed []any
-	for _, item := range in.Items {
+	for i, item := range in.Items {
 		func() {
 			var name string
 			var servingID int
@@ -155,12 +183,12 @@ func handleLogMeal(s *api.Server, ctx context.Context, req *mcp.CallToolRequest,
 					units = *item.NumberOfUnits
 				}
 			} else {
-				data, _ := s.PublicGET(ctx, "/food/v6", map[string]string{"food_id": strconv.Itoa(item.FoodID)})
-				food := foodFromGet(data)
-				if food == nil {
-					failed = append(failed, map[string]any{"food_id": item.FoodID, "error": "food not found"})
+				res := resolved[i]
+				if res.err != "" {
+					failed = append(failed, map[string]any{"food_id": item.FoodID, "error": res.err})
 					return
 				}
+				food := res.food
 				if item.FoodEntryName != nil {
 					name = *item.FoodEntryName
 				} else {

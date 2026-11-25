@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"time"
 
 	"github.com/kondratjev/fatsecret-mcp-go/internal/api"
 	"github.com/kondratjev/fatsecret-mcp-go/internal/tools"
@@ -59,6 +60,16 @@ func serveHTTP(s *api.Server, port int) error {
 func main() {
 	log.SetOutput(os.Stderr)
 	s := buildServer()
+	// Warm the OAuth2 token cache in the background: first use probes scopes
+	// (up to 8 token calls), so pay it at startup, not on the first tool call.
+	// Without credentials this fails fast and is a no-op.
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+		defer cancel()
+		if _, err := s.GetOAuth2Token(ctx); err != nil {
+			log.Printf("token warmup skipped: %v", err)
+		}
+	}()
 	if portStr := os.Getenv("PORT"); portStr != "" {
 		port, err := strconv.Atoi(portStr)
 		if err != nil {
