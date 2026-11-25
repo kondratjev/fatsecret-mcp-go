@@ -10,7 +10,7 @@ import (
 	"strings"
 )
 
-const OAuth2TokenURL = "https://oauth.fatsecret.com/connect/token"
+var OAuth2TokenURL = "https://oauth.fatsecret.com/connect/token"
 
 // OptionalScopes a key may hold on top of "basic". localization and feedback
 // localization and feedback are requested on top of premier/barcode/nlp/image-recognition.
