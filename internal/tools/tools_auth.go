@@ -72,8 +72,9 @@ func handleStartAuth(s *api.Server, ctx context.Context, req *mcp.CallToolReques
 	}
 	s.SetPending(token, secret)
 	return api.ToolResult(map[string]any{
-		"message":           "Visit the URL below to authorize the app, then use complete_auth with the verifier code.",
-		"authorization_url": authURL,
+		"message": "Visit the URL below to authorize the app, then use complete_auth with the verifier code.",
+		// NB: must not end in _url — ToolResult drops *_url keys to save tokens.
+		"authorization_link": authURL,
 	}, false)
 }
 
