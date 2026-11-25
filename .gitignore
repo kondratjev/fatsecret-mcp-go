@@ -1,0 +1,8 @@
+.env
+data/
+.DS_Store
+
+# AI files
+.claude/
+.mcpregistry_github_token
+.mcpregistry_registry_token

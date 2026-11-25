@@ -1,0 +1,76 @@
+package main
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"log"
+	"net/http"
+	"os"
+	"strconv"
+
+	"github.com/kondratjev/fatsecret-mcp-go/internal/api"
+	"github.com/kondratjev/fatsecret-mcp-go/internal/tools"
+	"github.com/modelcontextprotocol/go-sdk/mcp"
+)
+
+const version = "0.0.10"
+
+const instructions = `FatSecret MCP server provides two levels of access:
+
+1. SETUP: If API credentials are not configured, call check_auth_status first.
+   It will tell you if credentials are missing and guide through setup_credentials.
+   Get credentials at https://platform.fatsecret.com/ → My Account → API Keys.
+
+2. PUBLIC API (works after setup): Food search, recipes, brands, categories.
+   These tools use OAuth 2.0 with the configured Client ID and Client Secret.
+
+3. PROFILE API (requires user authorization): Food diary, saved meals, favorites, weight, exercises, profile.
+   These tools require OAuth 1.0 user authorization. Before using any profile tool,
+   call check_auth_status to see if the user is authenticated.
+   If not, guide them through: start_auth → user visits URL and authorizes → complete_auth with verifier PIN.
+   All credentials and tokens persist across sessions in ~/.fatsecret-mcp/config.json.`
+
+func buildServer() *api.Server {
+	ms := mcp.NewServer(&mcp.Implementation{Name: "fatsecret-mcp", Version: version}, &mcp.ServerOptions{
+		Instructions: instructions,
+	})
+	s := api.New(ms)
+	tools.RegisterAll(s)
+	return s
+}
+
+func serveStdio(s *api.Server) error {
+	return s.MCP().Run(context.Background(), &mcp.StdioTransport{})
+}
+
+func serveHTTP(s *api.Server, port int) error {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte("ok"))
+	})
+	// Stateless handler bound to our single server instance.
+	stateless := mcp.NewStreamableHTTPHandler(func(*http.Request) *mcp.Server { return s.MCP() }, &mcp.StreamableHTTPOptions{Stateless: true})
+	mux.Handle("/mcp", stateless)
+	log.Printf("FatSecret MCP server listening on :%d", port)
+	return http.ListenAndServe(":"+strconv.Itoa(port), mux)
+}
+
+func main() {
+	log.SetOutput(os.Stderr)
+	s := buildServer()
+	if portStr := os.Getenv("PORT"); portStr != "" {
+		port, err := strconv.Atoi(portStr)
+		if err != nil {
+			log.Fatalf("bad PORT %q: %v", portStr, err)
+		}
+		if err := serveHTTP(s, port); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			log.Fatal(err)
+		}
+		return
+	}
+	if err := serveStdio(s); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+}
