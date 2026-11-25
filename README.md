@@ -108,6 +108,43 @@ Verify with `claude mcp list`.
 - **Project config** — add JSON to `.cursor/mcp.json` in your project root
 - **Global config** — add JSON to `~/.cursor/mcp.json`
 
+### OpenCode
+
+`~/.config/opencode/opencode.json` — note the key is `mcp`, env is `environment`:
+
+```json
+{
+  "$schema": "https://opencode.ai/config.json",
+  "mcp": {
+    "fatsecret": {
+      "type": "local",
+      "command": ["/absolute/path/to/fatsecret-mcp"],
+      "environment": {
+        "FATSECRET_CLIENT_ID": "your_client_id",
+        "FATSECRET_CLIENT_SECRET": "your_client_secret",
+        "FATSECRET_CONSUMER_SECRET": "your_consumer_secret"
+      },
+      "enabled": true
+    }
+  }
+}
+```
+
+Or point at your self-hosted server instead of a local binary:
+
+```json
+{
+  "$schema": "https://opencode.ai/config.json",
+  "mcp": {
+    "fatsecret": {
+      "type": "remote",
+      "url": "https://<DOMAIN>/<MCP_SECRET>/mcp",
+      "enabled": true
+    }
+  }
+}
+```
+
 ## 🛠️ Available Tools
 
 | Tool                                | Description                                                                |
