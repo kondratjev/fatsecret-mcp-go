@@ -1,5 +1,6 @@
 .env
 data/
+./fatsecret-mcp
 .DS_Store
 
 # AI files

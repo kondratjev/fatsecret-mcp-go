@@ -11,7 +11,9 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"reflect"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -132,35 +134,45 @@ func (s *Server) ensureProfileAuth() error {
 }
 
 // toQueryMap converts a struct (json tags = API param names) to query params,
-// skipping nil/empty. Dates must already be converted to days by the caller.
+// skipping nil pointers and empty strings.
 func ToQueryMap(v any) map[string]string {
-	raw, err := json.Marshal(v)
-	if err != nil {
-		return map[string]string{}
-	}
-	dec := json.NewDecoder(bytes.NewReader(raw))
-	dec.UseNumber()
-	var m map[string]any
-	if err := dec.Decode(&m); err != nil {
-		return map[string]string{}
-	}
 	out := map[string]string{}
-	for k, val := range m {
-		switch t := val.(type) {
-		case nil:
-		case string:
-			if t != "" {
-				out[k] = t
+	rv := reflect.ValueOf(v)
+	if rv.Kind() == reflect.Ptr {
+		rv = rv.Elem()
+	}
+	if rv.Kind() != reflect.Struct {
+		return out
+	}
+	rt := rv.Type()
+	for i := range rt.NumField() {
+		name, _, _ := strings.Cut(rt.Field(i).Tag.Get("json"), ",")
+		if name == "" || name == "-" {
+			continue
+		}
+		fv := rv.Field(i)
+		if fv.Kind() == reflect.Ptr {
+			if fv.IsNil() {
+				continue
 			}
-		case json.Number:
-			out[k] = t.String()
-		case float64:
-			out[k] = strconv.FormatFloat(t, 'f', -1, 64)
-		case bool:
-			out[k] = strconv.FormatBool(t)
+			fv = fv.Elem()
+		}
+		switch fv.Kind() {
+		case reflect.String:
+			if fv.String() != "" {
+				out[name] = fv.String()
+			}
+		case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+			out[name] = strconv.FormatInt(fv.Int(), 10)
+		case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+			out[name] = strconv.FormatUint(fv.Uint(), 10)
+		case reflect.Float32, reflect.Float64:
+			out[name] = strconv.FormatFloat(fv.Float(), 'f', -1, 64)
+		case reflect.Bool:
+			out[name] = strconv.FormatBool(fv.Bool())
 		default:
-			if b, err := json.Marshal(t); err == nil {
-				out[k] = string(b)
+			if b, err := json.Marshal(fv.Interface()); err == nil {
+				out[name] = string(b)
 			}
 		}
 	}
@@ -250,9 +262,7 @@ func (s *Server) ProfileRequest(ctx context.Context, method, path string, query 
 
 // ensureScope: add-ons are separate OAuth2 scopes; say so up front.
 func (s *Server) EnsureScope(ctx context.Context, scope, feature string) error {
-	token, err := s.GetOAuth2Token(ctx)
-	_ = token
-	if err != nil {
+	if _, err := s.GetOAuth2Token(ctx); err != nil {
 		return err
 	}
 	s.mu.Lock()

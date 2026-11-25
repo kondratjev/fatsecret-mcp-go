@@ -50,9 +50,7 @@ var v1OnlyParams = []string{"flag_default_serving", "food_type", "region", "lang
 	"include_food_attributes", "include_food_classification_data", "include_nutrient_content_tags"}
 
 func handleSearchFoods(s *api.Server, ctx context.Context, req *mcp.CallToolRequest, in searchFoodsInput) (*mcp.CallToolResult, any, error) {
-	token, err := s.GetOAuth2Token(ctx)
-	_ = token
-	if err != nil {
+	if _, err := s.GetOAuth2Token(ctx); err != nil {
 		return api.ToolResult(map[string]any{"error": map[string]any{"message": err.Error()}}, true)
 	}
 	premier := s.HasPremierScope()

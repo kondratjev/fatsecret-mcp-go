@@ -25,6 +25,19 @@ func parseNum(s string) float64 {
 	return n
 }
 
+// Num coerces FatSecret's string-or-number (or {value}-wrapped) shapes to float64.
+func Num(v any) float64 {
+	switch t := v.(type) {
+	case map[string]any:
+		return Num(t["value"])
+	case float64:
+		return t
+	case string:
+		return parseNum(t)
+	}
+	return 0
+}
+
 // toServings normalizes the FatSecret single-object-or-array serving shape.
 func ToServings(v any) []Serving {
 	var out []Serving

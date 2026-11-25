@@ -1,4 +1,4 @@
 data
 .env
 .git
-fatsecret-mcp
+./fatsecret-mcp

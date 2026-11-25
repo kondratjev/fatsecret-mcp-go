@@ -247,17 +247,7 @@ func foodEntryID(data any) int {
 	if !ok {
 		return 0
 	}
-	switch t := m["food_entry_id"].(type) {
-	case map[string]any:
-		var id int
-		fmt.Sscanf(fmt.Sprint(t["value"]), "%d", &id)
-		return id
-	case string:
-		var id int
-		fmt.Sscanf(t, "%d", &id)
-		return id
-	}
-	return 0
+	return int(platform.Num(m["food_entry_id"]))
 }
 
 func handleEditFoodEntry(s *api.Server, ctx context.Context, req *mcp.CallToolRequest, in editFoodEntryInput) (*mcp.CallToolResult, any, error) {
