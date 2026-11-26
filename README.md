@@ -3,7 +3,7 @@
 [![Go](https://img.shields.io/badge/Go-1.27-00ADD8?logo=go)](go.mod)
 [![MCP](https://img.shields.io/badge/MCP-2025--06--18-7C3AED)](https://modelcontextprotocol.io/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Tools](https://img.shields.io/badge/tools-54-brightgreen)](README.md#%EF%B8%8F-available-tools)
+[![Tools](https://img.shields.io/badge/tools-56-brightgreen)](README.md#%EF%B8%8F-available-tools)
 
 > [!IMPORTANT]
 > This is **not an official MCP server** by FatSecret.
@@ -11,13 +11,14 @@
 
 An MCP (Model Context Protocol) server that connects Claude/Cursor to the [FatSecret Platform API](https://platform.fatsecret.com/). Search foods, track your diet, manage recipes, and monitor weight directly from your AI assistant.
 
-Single static binary (~14 MB, ~10 MB RAM) — no Node.js, no runtime. 54 tools, config in `~/.fatsecret-mcp/config.json`.
+Single static binary (~14 MB, ~10 MB RAM) — no Node.js, no runtime. 56 tools, config in `~/.fatsecret-mcp/config.json`.
 
 Built on the official [`modelcontextprotocol/go-sdk`](https://github.com/modelcontextprotocol/go-sdk).
 
 ## ✨ Features
 
 - 🔐 **Authentication** — Interactive credential setup and OAuth authorization
+- ✋ **Draft → confirm** — Stage any write with `prepare_call` (validated + human-readable preview), execute with `confirm_draft`. Set `FATSECRET_REQUIRE_CONFIRM=1` to block direct writes entirely
 - 🔍 **Food Search** — Search FatSecret's extensive food database with detailed nutrition data
 - 📷 **Barcode Lookup** — Find foods by GTIN-13 barcode
 - 🍳 **Recipe Search** — Browse and filter recipes by calories, macros, and prep time
@@ -167,6 +168,8 @@ Or point at your self-hosted server instead of a local binary:
 | `setup_credentials`                 | Save FatSecret API credentials to persistent config                        |
 | `start_auth`                        | Start OAuth 1.0 authorization — returns URL for user to visit              |
 | `complete_auth`                     | Complete OAuth with verifier PIN from authorization page                   |
+| `prepare_call`                      | Stage a write as a single-use draft (validated + preview, nothing written) |
+| `confirm_draft`                     | Execute a draft staged by `prepare_call`                                   |
 |                                     |                                                                            |
 | **🔍 Food Search** _(public)_       |                                                                            |
 | `search_foods`                      | Search the food database                                                   |
@@ -306,7 +309,7 @@ This pushes the current branch, then on the server pulls it, rebuilds and restar
 │   ├── config/         # ~/.fatsecret-mcp/config.json + env overrides
 │   ├── httpx/          # resilientFetch: timeouts + GET-only retries
 │   ├── platform/       # dates, servings, scope-14 detection, search trimming
-│   └── tools/          # 54 tool definitions + handlers
+│   └── tools/          # 56 tool definitions + handlers
 ├── Dockerfile
 └── docker-compose.yml  # mcp + Caddy (HTTPS, secret path)
 ```

@@ -48,6 +48,6 @@ func handleGetWeightMonth(s *api.Server, ctx context.Context, req *mcp.CallToolR
 
 func registerWeightTools(s *api.Server) {
 	const req = " Requires profile auth (check_auth_status first)."
-	mcp.AddTool(s.MCP(), &mcp.Tool{Name: "update_weight", Description: "Record the user's weight for a date. First weigh-in requires goal_weight_kg and current_height_cm." + req, Annotations: writeTools(true)}, bind(s, handleUpdateWeight))
+	mcp.AddTool(s.MCP(), &mcp.Tool{Name: "update_weight", Description: "Record the user's weight for a date. First weigh-in requires goal_weight_kg and current_height_cm." + req, Annotations: writeTools(true)}, bindWrite(s, "update_weight", handleUpdateWeight, nil))
 	mcp.AddTool(s.MCP(), &mcp.Tool{Name: "get_weight_month", Description: "Get the user's weight entries for a month." + req, Annotations: &mcp.ToolAnnotations{ReadOnlyHint: true, IdempotentHint: true}}, bind(s, handleGetWeightMonth))
 }

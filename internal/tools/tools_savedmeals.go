@@ -116,11 +116,11 @@ func registerSavedMealTools(s *api.Server) {
 	ro := &mcp.ToolAnnotations{ReadOnlyHint: true, IdempotentHint: true}
 	const req = " Requires profile auth (check_auth_status first)."
 	mcp.AddTool(s.MCP(), &mcp.Tool{Name: "get_saved_meals", Description: "Get the user's saved meals, optionally filtered by meal type." + req, Annotations: ro}, bind(s, handleGetSavedMeals))
-	mcp.AddTool(s.MCP(), &mcp.Tool{Name: "create_saved_meal", Description: "Create a new saved meal." + req, Annotations: writeTools(false)}, bind(s, handleCreateSavedMeal))
-	mcp.AddTool(s.MCP(), &mcp.Tool{Name: "edit_saved_meal", Description: "Edit a saved meal name, description, or associated meals." + req, Annotations: writeTools(true)}, bind(s, handleEditSavedMeal))
-	mcp.AddTool(s.MCP(), &mcp.Tool{Name: "delete_saved_meal", Description: "Delete a saved meal." + req, Annotations: destructiveTools()}, bind(s, handleDeleteSavedMeal))
+	mcp.AddTool(s.MCP(), &mcp.Tool{Name: "create_saved_meal", Description: "Create a new saved meal." + req, Annotations: writeTools(false)}, bindWrite(s, "create_saved_meal", handleCreateSavedMeal, nil))
+	mcp.AddTool(s.MCP(), &mcp.Tool{Name: "edit_saved_meal", Description: "Edit a saved meal name, description, or associated meals." + req, Annotations: writeTools(true)}, bindWrite(s, "edit_saved_meal", handleEditSavedMeal, nil))
+	mcp.AddTool(s.MCP(), &mcp.Tool{Name: "delete_saved_meal", Description: "Delete a saved meal." + req, Annotations: destructiveTools()}, bindWrite(s, "delete_saved_meal", handleDeleteSavedMeal, nil))
 	mcp.AddTool(s.MCP(), &mcp.Tool{Name: "get_saved_meal_items", Description: "Get all food items in a saved meal." + req, Annotations: ro}, bind(s, handleGetSavedMealItems))
-	mcp.AddTool(s.MCP(), &mcp.Tool{Name: "add_saved_meal_item", Description: "Add a food item to a saved meal." + req, Annotations: writeTools(false)}, bind(s, handleAddSavedMealItem))
-	mcp.AddTool(s.MCP(), &mcp.Tool{Name: "edit_saved_meal_item", Description: "Edit a food item in a saved meal (name or units). Cannot change serving_id." + req, Annotations: writeTools(true)}, bind(s, handleEditSavedMealItem))
-	mcp.AddTool(s.MCP(), &mcp.Tool{Name: "delete_saved_meal_item", Description: "Remove a food item from a saved meal." + req, Annotations: destructiveTools()}, bind(s, handleDeleteSavedMealItem))
+	mcp.AddTool(s.MCP(), &mcp.Tool{Name: "add_saved_meal_item", Description: "Add a food item to a saved meal." + req, Annotations: writeTools(false)}, bindWrite(s, "add_saved_meal_item", handleAddSavedMealItem, nil))
+	mcp.AddTool(s.MCP(), &mcp.Tool{Name: "edit_saved_meal_item", Description: "Edit a food item in a saved meal (name or units). Cannot change serving_id." + req, Annotations: writeTools(true)}, bindWrite(s, "edit_saved_meal_item", handleEditSavedMealItem, nil))
+	mcp.AddTool(s.MCP(), &mcp.Tool{Name: "delete_saved_meal_item", Description: "Remove a food item from a saved meal." + req, Annotations: destructiveTools()}, bindWrite(s, "delete_saved_meal_item", handleDeleteSavedMealItem, nil))
 }

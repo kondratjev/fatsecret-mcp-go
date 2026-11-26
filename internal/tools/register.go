@@ -28,4 +28,5 @@ func RegisterAll(s *api.Server) {
 	registerExerciseTools(s)
 	registerProfileTools(s)
 	registerAuthTools(s)
+	registerDraftTools(s)
 }

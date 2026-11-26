@@ -93,8 +93,8 @@ func registerExerciseTools(s *api.Server) {
 	const req = " Requires profile auth (check_auth_status first)."
 	mcp.AddTool(s.MCP(), &mcp.Tool{Name: "get_exercise_entries", Description: "Get the user's exercise diary entries for a date." + req, Annotations: ro}, bind(s, handleGetExerciseEntries))
 	mcp.AddTool(s.MCP(), &mcp.Tool{Name: "get_exercises", Description: "Get the full list of supported exercise types and their IDs." + req, Annotations: ro}, bind(s, handleGetExercises))
-	mcp.AddTool(s.MCP(), &mcp.Tool{Name: "edit_exercise_entries", Description: "Shift exercise time between activities for a date. Moves minutes from one exercise to another." + req, Annotations: writeTools(false)}, bind(s, handleEditExerciseEntries))
+	mcp.AddTool(s.MCP(), &mcp.Tool{Name: "edit_exercise_entries", Description: "Shift exercise time between activities for a date. Moves minutes from one exercise to another." + req, Annotations: writeTools(false)}, bindWrite(s, "edit_exercise_entries", handleEditExerciseEntries, nil))
 	mcp.AddTool(s.MCP(), &mcp.Tool{Name: "get_exercise_entries_month", Description: "Get daily calories expended from exercise for a month." + req, Annotations: ro}, bind(s, handleGetExerciseEntriesMonth))
-	mcp.AddTool(s.MCP(), &mcp.Tool{Name: "save_exercise_template", Description: "Save the current day's exercise entries as a template for specified days of the week." + req, Annotations: writeTools(true)}, bind(s, handleSaveExerciseTemplate))
-	mcp.AddTool(s.MCP(), &mcp.Tool{Name: "commit_exercise_day", Description: "Commit the day's template exercise entries to the diary (acknowledge the activities as done)." + req, Annotations: writeTools(true)}, bind(s, handleCommitExerciseDay))
+	mcp.AddTool(s.MCP(), &mcp.Tool{Name: "save_exercise_template", Description: "Save the current day's exercise entries as a template for specified days of the week." + req, Annotations: writeTools(true)}, bindWrite(s, "save_exercise_template", handleSaveExerciseTemplate, nil))
+	mcp.AddTool(s.MCP(), &mcp.Tool{Name: "commit_exercise_day", Description: "Commit the day's template exercise entries to the diary (acknowledge the activities as done)." + req, Annotations: writeTools(true)}, bindWrite(s, "commit_exercise_day", handleCommitExerciseDay, nil))
 }

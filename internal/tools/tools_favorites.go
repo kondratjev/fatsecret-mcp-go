@@ -73,11 +73,11 @@ func registerFavoriteTools(s *api.Server) {
 	ro := &mcp.ToolAnnotations{ReadOnlyHint: true, IdempotentHint: true}
 	const req = " Requires profile auth (check_auth_status first)."
 	mcp.AddTool(s.MCP(), &mcp.Tool{Name: "get_favorite_foods", Description: "Get the user's favorite foods." + req, Annotations: ro}, bind(s, handleGetFavoriteFoods))
-	mcp.AddTool(s.MCP(), &mcp.Tool{Name: "add_favorite_food", Description: "Add a food to the user's favorites." + req, Annotations: writeTools(true)}, bind(s, handleAddFavoriteFood))
-	mcp.AddTool(s.MCP(), &mcp.Tool{Name: "delete_favorite_food", Description: "Remove a food from the user's favorites." + req, Annotations: destructiveTools()}, bind(s, handleDeleteFavoriteFood))
+	mcp.AddTool(s.MCP(), &mcp.Tool{Name: "add_favorite_food", Description: "Add a food to the user's favorites." + req, Annotations: writeTools(true)}, bindWrite(s, "add_favorite_food", handleAddFavoriteFood, nil))
+	mcp.AddTool(s.MCP(), &mcp.Tool{Name: "delete_favorite_food", Description: "Remove a food from the user's favorites." + req, Annotations: destructiveTools()}, bindWrite(s, "delete_favorite_food", handleDeleteFavoriteFood, nil))
 	mcp.AddTool(s.MCP(), &mcp.Tool{Name: "get_most_eaten_foods", Description: "Get the user's most eaten foods, optionally filtered by meal." + req, Annotations: ro}, bind(s, handleGetMostEatenFoods))
 	mcp.AddTool(s.MCP(), &mcp.Tool{Name: "get_recently_eaten_foods", Description: "Get the user's recently eaten foods, optionally filtered by meal." + req, Annotations: ro}, bind(s, handleGetRecentlyEatenFoods))
 	mcp.AddTool(s.MCP(), &mcp.Tool{Name: "get_favorite_recipes", Description: "Get the user's favorite recipes." + req, Annotations: ro}, bind(s, handleGetFavoriteRecipes))
-	mcp.AddTool(s.MCP(), &mcp.Tool{Name: "add_favorite_recipe", Description: "Add a recipe to the user's favorites." + req, Annotations: writeTools(true)}, bind(s, handleAddFavoriteRecipe))
-	mcp.AddTool(s.MCP(), &mcp.Tool{Name: "delete_favorite_recipe", Description: "Remove a recipe from the user's favorites." + req, Annotations: destructiveTools()}, bind(s, handleDeleteFavoriteRecipe))
+	mcp.AddTool(s.MCP(), &mcp.Tool{Name: "add_favorite_recipe", Description: "Add a recipe to the user's favorites." + req, Annotations: writeTools(true)}, bindWrite(s, "add_favorite_recipe", handleAddFavoriteRecipe, nil))
+	mcp.AddTool(s.MCP(), &mcp.Tool{Name: "delete_favorite_recipe", Description: "Remove a recipe from the user's favorites." + req, Annotations: destructiveTools()}, bindWrite(s, "delete_favorite_recipe", handleDeleteFavoriteRecipe, nil))
 }

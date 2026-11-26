@@ -6,6 +6,7 @@ import (
 	"github.com/kondratjev/fatsecret-mcp-go/internal/api"
 	"github.com/kondratjev/fatsecret-mcp-go/internal/platform"
 	"strconv"
+	"strings"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"golang.org/x/sync/errgroup"
@@ -141,16 +142,114 @@ func handleLogMeal(s *api.Server, ctx context.Context, req *mcp.CallToolRequest,
 		return api.ToolResult(map[string]any{"error": map[string]any{"message": err.Error()}}, true)
 	}
 	daysStr := strconv.FormatInt(days, 10)
-	// Reads (food.get) run in parallel under a small cap; writes stay
-	// sequential — bursts trip the API call limits.
+	items, err := resolveLogMealItems(s, ctx, in.Items)
+	if err != nil {
+		return api.ToolResult(map[string]any{"error": map[string]any{"message": err.Error()}}, true)
+	}
+	var created []any
+	var failed []any
+	for _, r := range items {
+		if r.failed != "" {
+			failed = append(failed, map[string]any{"food_id": r.foodID, "error": r.failed})
+			continue
+		}
+		q := map[string]string{
+			"food_id":         strconv.Itoa(r.foodID),
+			"food_entry_name": r.name,
+			"serving_id":      strconv.Itoa(r.servingID),
+			"number_of_units": strconv.FormatFloat(r.units, 'f', -1, 64),
+			"meal":            in.Meal,
+			"date":            daysStr,
+		}
+		data, reqFailed := s.ProfileRequest(ctx, "POST", "/food-entries/v1", q)
+		entryID := foodEntryID(data)
+		if reqFailed || entryID == 0 {
+			failed = append(failed, map[string]any{"food_id": r.foodID, "error": fmt.Sprint(data)})
+			continue
+		}
+		created = append(created, map[string]any{
+			"food_entry_id": entryID, "food_entry_name": r.name,
+			"serving_id": r.servingID, "number_of_units": r.units,
+		})
+	}
+	day, _ := s.ProfileRequest(ctx, "GET", "/food-entries/v2", map[string]string{"date": daysStr})
+	return api.ToolResult(map[string]any{
+		"created":    nonNilSlice(created),
+		"failed":     nonNilSlice(failed),
+		"day_totals": platform.DayTotals(day),
+	}, len(failed) > 0)
+}
+
+// resolvedMealItem is one log_meal item with servings resolved (reads only,
+// no writes) so previews and execution share the same code.
+type resolvedMealItem struct {
+	foodID    int
+	name      string
+	servingID int
+	units     float64
+	desc      string
+	kcal      float64
+	protein   float64
+	fat       float64
+	carbs     float64
+	failed    string
+}
+
+// eachRawServing walks the single-object-or-array serving shape of a raw
+// /food/v6 response, which platform.Serving drops nutrition from.
+func eachRawServing(data any, fn func(map[string]any)) {
+	m, ok := data.(map[string]any)
+	if !ok {
+		return
+	}
+	fm, ok := m["food"].(map[string]any)
+	if !ok {
+		return
+	}
+	sv, ok := fm["servings"].(map[string]any)
+	if !ok {
+		return
+	}
+	switch t := sv["serving"].(type) {
+	case map[string]any:
+		fn(t)
+	case []any:
+		for _, item := range t {
+			if sm, ok := item.(map[string]any); ok {
+				fn(sm)
+			}
+		}
+	}
+}
+
+// servingNutrition pulls one serving's description and scaled nutrition out
+// of a raw /food/v6 response.
+func servingNutrition(data any, servingID int, units float64) (desc string, kcal, protein, fat, carbs float64) {
+	eachRawServing(data, func(sm map[string]any) {
+		if desc != "" || int(platform.Num(sm["serving_id"])) != servingID {
+			return
+		}
+		desc, _ = sm["serving_description"].(string)
+		kcal = platform.Num(sm["calories"]) * units
+		protein = platform.Num(sm["protein"]) * units
+		fat = platform.Num(sm["fat"]) * units
+		carbs = platform.Num(sm["carbohydrate"]) * units
+	})
+	return desc, kcal, protein, fat, carbs
+}
+
+// resolveLogMealItems resolves servings for every item. Reads (food.get) run
+// in parallel under a small cap.
+func resolveLogMealItems(s *api.Server, ctx context.Context, items []logMealItem) ([]resolvedMealItem, error) {
 	type resolution struct {
 		food *foodInfo
+		raw  any
 		err  string
 	}
-	resolved := make([]resolution, len(in.Items))
+	resolved := make([]resolution, len(items))
 	g, gctx := errgroup.WithContext(ctx)
 	g.SetLimit(4)
-	for i, item := range in.Items {
+	for i, item := range items {
 		if item.ServingID != nil && item.FoodEntryName != nil {
 			continue // fast path: no read needed
 		}
@@ -161,81 +260,141 @@ func handleLogMeal(s *api.Server, ctx context.Context, req *mcp.CallToolRequest,
 				resolved[i] = resolution{err: "food not found"}
 				return nil
 			}
-			resolved[i] = resolution{food: food}
+			resolved[i] = resolution{food: food, raw: data}
 			return nil
 		})
 	}
 	if err := g.Wait(); err != nil {
-		return api.ToolResult(map[string]any{"error": map[string]any{"message": err.Error()}}, true)
+		return nil, err
 	}
-	var created []any
-	var failed []any
-	for i, item := range in.Items {
-		func() {
-			var name string
-			var servingID int
-			var units float64
-			if item.ServingID != nil && item.FoodEntryName != nil {
-				name = *item.FoodEntryName
-				servingID = *item.ServingID
-				units = 1
-				if item.NumberOfUnits != nil {
-					units = *item.NumberOfUnits
-				}
+	out := make([]resolvedMealItem, len(items))
+	for i, item := range items {
+		r := resolvedMealItem{foodID: item.FoodID}
+		if item.ServingID != nil && item.FoodEntryName != nil {
+			r.name = *item.FoodEntryName
+			r.servingID = *item.ServingID
+			r.units = 1
+			if item.NumberOfUnits != nil {
+				r.units = *item.NumberOfUnits
+			}
+		} else {
+			res := resolved[i]
+			if res.err != "" {
+				r.failed = res.err
+				out[i] = r
+				continue
+			}
+			if item.FoodEntryName != nil {
+				r.name = *item.FoodEntryName
 			} else {
-				res := resolved[i]
-				if res.err != "" {
-					failed = append(failed, map[string]any{"food_id": item.FoodID, "error": res.err})
-					return
-				}
-				food := res.food
-				if item.FoodEntryName != nil {
-					name = *item.FoodEntryName
-				} else {
-					name = food.name
-				}
-				var sid *int
-				var nou *float64
-				if item.ServingID != nil {
-					sid = item.ServingID
-				}
-				if item.NumberOfUnits != nil {
-					nou = item.NumberOfUnits
-				}
-				var err error
-				servingID, units, err = platform.ChooseServing(food.servings, sid, nou, item.Grams)
-				if err != nil {
-					failed = append(failed, map[string]any{"food_id": item.FoodID, "error": err.Error()})
-					return
-				}
+				r.name = res.food.name
 			}
-			q := map[string]string{
-				"food_id":         strconv.Itoa(item.FoodID),
-				"food_entry_name": name,
-				"serving_id":      strconv.Itoa(servingID),
-				"number_of_units": strconv.FormatFloat(units, 'f', -1, 64),
-				"meal":            in.Meal,
-				"date":            daysStr,
+			var sid *int
+			var nou *float64
+			if item.ServingID != nil {
+				sid = item.ServingID
 			}
-			data, reqFailed := s.ProfileRequest(ctx, "POST", "/food-entries/v1", q)
-			entryID := foodEntryID(data)
-			if reqFailed || entryID == 0 {
-				msg := fmt.Sprint(data)
-				failed = append(failed, map[string]any{"food_id": item.FoodID, "error": msg})
-				return
+			if item.NumberOfUnits != nil {
+				nou = item.NumberOfUnits
 			}
-			created = append(created, map[string]any{
-				"food_entry_id": entryID, "food_entry_name": name,
-				"serving_id": servingID, "number_of_units": units,
-			})
-		}()
+			servingID, units, err := platform.ChooseServing(res.food.servings, sid, nou, item.Grams)
+			if err != nil {
+				r.failed = err.Error()
+				out[i] = r
+				continue
+			}
+			r.servingID, r.units = servingID, units
+			r.desc, r.kcal, r.protein, r.fat, r.carbs = servingNutrition(res.raw, servingID, units)
+		}
+		out[i] = r
 	}
+	return out, nil
+}
+
+func trimNum(f float64) string { return strconv.FormatFloat(f, 'f', -1, 64) }
+
+// dayTotalsLine fetches current day totals for preview text.
+func dayTotalsLine(s *api.Server, ctx context.Context, label, daysStr string) string {
 	day, _ := s.ProfileRequest(ctx, "GET", "/food-entries/v2", map[string]string{"date": daysStr})
-	return api.ToolResult(map[string]any{
-		"created":    nonNilSlice(created),
-		"failed":     nonNilSlice(failed),
-		"day_totals": platform.DayTotals(day),
-	}, len(failed) > 0)
+	total := map[string]any{}
+	if t, ok := platform.DayTotals(day)["total"].(map[string]any); ok {
+		total = t
+	}
+	return fmt.Sprintf("Day %s now: %.0f kcal (P %.0f, F %.0f, C %.0f).", label,
+		platform.Num(total["calories"]), platform.Num(total["protein"]),
+		platform.Num(total["fat"]), platform.Num(total["carbohydrate"]))
+}
+
+func previewLogMeal(s *api.Server, ctx context.Context, in logMealInput) (string, error) {
+	date := "today"
+	if in.Date != nil {
+		date = *in.Date
+	}
+	days, err := platform.OptionalDateToDays(firstVal(in.Date))
+	if err != nil {
+		return "", err
+	}
+	daysStr := strconv.FormatInt(days, 10)
+	items, err := resolveLogMealItems(s, ctx, in.Items)
+	if err != nil {
+		return "", err
+	}
+	lines := make([]string, 0, len(items))
+	var kcal float64
+	failed := 0
+	for _, r := range items {
+		if r.failed != "" {
+			failed++
+			lines = append(lines, fmt.Sprintf("- food_id %d: FAILED (%s)", r.foodID, r.failed))
+			continue
+		}
+		kcal += r.kcal
+		what := r.desc
+		if what == "" {
+			what = fmt.Sprintf("serving %d", r.servingID)
+		}
+		line := fmt.Sprintf("- %s: %s x %s", r.name, trimNum(r.units), what)
+		if r.kcal > 0 {
+			line += fmt.Sprintf(" (~%.0f kcal, P%.0f F%.0f C%.0f)", r.kcal, r.protein, r.fat, r.carbs)
+		}
+		lines = append(lines, line)
+	}
+	head := fmt.Sprintf("Will log %s on %s (%d items, ~%.0f kcal):", in.Meal, date, len(items), kcal)
+	if failed > 0 {
+		head += fmt.Sprintf(" %d item(s) would FAIL and be skipped.", failed)
+	}
+	return head + "\n" + strings.Join(lines, "\n") + "\n" + dayTotalsLine(s, ctx, date, daysStr), nil
+}
+
+func previewCreateFoodEntry(s *api.Server, ctx context.Context, in createFoodEntryInput) (string, error) {
+	date := "today"
+	if in.Date != nil {
+		date = *in.Date
+	}
+	days, err := platform.OptionalDateToDays(firstVal(in.Date))
+	if err != nil {
+		return "", err
+	}
+	daysStr := strconv.FormatInt(days, 10)
+	data, failed := s.PublicGET(ctx, "/food/v6", map[string]string{"food_id": strconv.Itoa(in.FoodID)})
+	if failed {
+		return "", fmt.Errorf("food %d not found", in.FoodID)
+	}
+	desc, kcal, protein, fat, carbs := servingNutrition(data, in.ServingID, in.NumberOfUnits)
+	what := desc
+	if what == "" {
+		what = fmt.Sprintf("serving %d", in.ServingID)
+	}
+	return fmt.Sprintf("Will add %q (%s x %s) to %s on %s: ~%.0f kcal (P%.0f F%.0f C%.0f).\n%s",
+		in.FoodEntryName, trimNum(in.NumberOfUnits), what, in.Meal, date,
+		kcal, protein, fat, carbs, dayTotalsLine(s, ctx, date, daysStr)), nil
+}
+
+func firstVal(p *string) string {
+	if p != nil {
+		return *p
+	}
+	return ""
 }
 
 func nonNilSlice(v []any) any {
@@ -339,10 +498,10 @@ func registerFoodDiaryTools(s *api.Server) {
 	ro := &mcp.ToolAnnotations{ReadOnlyHint: true, IdempotentHint: true}
 	mcp.AddTool(s.MCP(), &mcp.Tool{Name: "get_food_entries", Description: "Get food diary entries for a date or a specific entry by ID. Requires profile auth (check_auth_status first).", Annotations: ro}, bind(s, handleGetFoodEntries))
 	mcp.AddTool(s.MCP(), &mcp.Tool{Name: "get_food_entries_month", Description: "Get daily nutrition summary for a month. Returns calories and macros per day. Requires profile auth (check_auth_status first).", Annotations: ro}, bind(s, handleGetFoodEntriesMonth))
-	mcp.AddTool(s.MCP(), &mcp.Tool{Name: "create_food_entry", Description: "Add a food diary entry. Requires food_id, serving_id, and meal type. Requires profile auth (check_auth_status first).", Annotations: writeTools(false)}, bind(s, handleCreateFoodEntry))
-	mcp.AddTool(s.MCP(), &mcp.Tool{Name: "log_meal", Description: "Log a whole meal in one call: each item is a food_id plus grams (or serving_id + number_of_units); servings are resolved automatically. Returns the created entries and the day totals. Prefer this over several create_food_entry calls. Requires profile auth (check_auth_status first).", Annotations: writeTools(false)}, bind(s, handleLogMeal))
-	mcp.AddTool(s.MCP(), &mcp.Tool{Name: "edit_food_entry", Description: "Edit an existing food diary entry. Cannot change the date. Requires profile auth (check_auth_status first).", Annotations: writeTools(true)}, bind(s, handleEditFoodEntry))
-	mcp.AddTool(s.MCP(), &mcp.Tool{Name: "delete_food_entry", Description: "Delete a food diary entry by ID. Requires profile auth (check_auth_status first).", Annotations: destructiveTools()}, bind(s, handleDeleteFoodEntry))
-	mcp.AddTool(s.MCP(), &mcp.Tool{Name: "copy_food_entries", Description: "Copy food entries from one date to another, optionally filtered by meal. Requires profile auth (check_auth_status first).", Annotations: writeTools(false)}, bind(s, handleCopyFoodEntries))
-	mcp.AddTool(s.MCP(), &mcp.Tool{Name: "copy_saved_meal_entries", Description: "Copy entries from a saved meal to a meal on a specific date. Requires profile auth (check_auth_status first).", Annotations: writeTools(false)}, bind(s, handleCopySavedMealEntries))
+	mcp.AddTool(s.MCP(), &mcp.Tool{Name: "create_food_entry", Description: "Add a food diary entry. Requires food_id, serving_id, and meal type. Requires profile auth (check_auth_status first).", Annotations: writeTools(false)}, bindWrite(s, "create_food_entry", handleCreateFoodEntry, previewCreateFoodEntry))
+	mcp.AddTool(s.MCP(), &mcp.Tool{Name: "log_meal", Description: "Log a whole meal in one call: each item is a food_id plus grams (or serving_id + number_of_units); servings are resolved automatically. Returns the created entries and the day totals. Prefer this over several create_food_entry calls. Requires profile auth (check_auth_status first).", Annotations: writeTools(false)}, bindWrite(s, "log_meal", handleLogMeal, previewLogMeal))
+	mcp.AddTool(s.MCP(), &mcp.Tool{Name: "edit_food_entry", Description: "Edit an existing food diary entry. Cannot change the date. Requires profile auth (check_auth_status first).", Annotations: writeTools(true)}, bindWrite(s, "edit_food_entry", handleEditFoodEntry, nil))
+	mcp.AddTool(s.MCP(), &mcp.Tool{Name: "delete_food_entry", Description: "Delete a food diary entry by ID. Requires profile auth (check_auth_status first).", Annotations: destructiveTools()}, bindWrite(s, "delete_food_entry", handleDeleteFoodEntry, nil))
+	mcp.AddTool(s.MCP(), &mcp.Tool{Name: "copy_food_entries", Description: "Copy food entries from one date to another, optionally filtered by meal. Requires profile auth (check_auth_status first).", Annotations: writeTools(false)}, bindWrite(s, "copy_food_entries", handleCopyFoodEntries, nil))
+	mcp.AddTool(s.MCP(), &mcp.Tool{Name: "copy_saved_meal_entries", Description: "Copy entries from a saved meal to a meal on a specific date. Requires profile auth (check_auth_status first).", Annotations: writeTools(false)}, bindWrite(s, "copy_saved_meal_entries", handleCopySavedMealEntries, nil))
 }

@@ -60,5 +60,5 @@ func handleCreateFoodFeedback(s *api.Server, ctx context.Context, req *mcp.CallT
 }
 
 func registerFeedbackTools(s *api.Server) {
-	mcp.AddTool(s.MCP(), &mcp.Tool{Name: "create_food_feedback", Description: "Report wrong food/brand names, nutrition facts, missing servings or unknown barcodes. Returns signed upload URLs for evidence photos. Paid feedback add-on.", Annotations: writeTools(true)}, bind(s, handleCreateFoodFeedback))
+	mcp.AddTool(s.MCP(), &mcp.Tool{Name: "create_food_feedback", Description: "Report wrong food/brand names, nutrition facts, missing servings or unknown barcodes. Returns signed upload URLs for evidence photos. Paid feedback add-on.", Annotations: writeTools(true)}, bindWrite(s, "create_food_feedback", handleCreateFoodFeedback, nil))
 }
