@@ -2,6 +2,8 @@ package tools
 
 import (
 	"context"
+	"strings"
+
 	"github.com/kondratjev/fatsecret-mcp-go/internal/api"
 	"github.com/kondratjev/fatsecret-mcp-go/internal/platform"
 
@@ -86,7 +88,7 @@ func handleSearchFoods(s *api.Server, ctx context.Context, req *mcp.CallToolRequ
 	}
 	if len(ignored) > 0 {
 		if m, ok := data.(map[string]any); ok {
-			m["note"] = "Basic plan: ignored: " + joinComma(ignored)
+			m["note"] = "Basic plan: ignored: " + strings.Join(ignored, ", ")
 			data = m
 		}
 	}
@@ -106,17 +108,6 @@ func handleFindFoodByBarcode(s *api.Server, ctx context.Context, req *mcp.CallTo
 func handleAutocompleteFoods(s *api.Server, ctx context.Context, req *mcp.CallToolRequest, in autocompleteFoodsInput) (*mcp.CallToolResult, any, error) {
 	data, failed := s.PublicGET(ctx, "/food/autocomplete/v2", api.ToQueryMap(in))
 	return api.ToolResult(data, failed)
-}
-
-func joinComma(ss []string) string {
-	out := ""
-	for i, v := range ss {
-		if i > 0 {
-			out += ", "
-		}
-		out += v
-	}
-	return out
 }
 
 func roTools() *mcp.ToolAnnotations {

@@ -61,6 +61,22 @@ func Resolve() Config {
 	return cfg
 }
 
+// loadRawFile reads the config file straight into a map so Save preserves
+// keys the typed Config doesn't know about.
+func loadRawFile() map[string]string {
+	m := map[string]string{}
+	p, err := Path()
+	if err != nil {
+		return m
+	}
+	data, err := os.ReadFile(p)
+	if err != nil {
+		return m
+	}
+	_ = json.Unmarshal(data, &m)
+	return m
+}
+
 // saveConfig merges updates into the config file, dropping empty values.
 func Save(updates map[string]string) error {
 	dir, err := configDir()
@@ -70,13 +86,7 @@ func Save(updates map[string]string) error {
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return err
 	}
-	existing := loadConfigFile()
-	merged, _ := json.Marshal(existing)
-	var m map[string]string
-	_ = json.Unmarshal(merged, &m)
-	if m == nil {
-		m = map[string]string{}
-	}
+	m := loadRawFile()
 	for k, v := range updates {
 		if v == "" {
 			delete(m, k)

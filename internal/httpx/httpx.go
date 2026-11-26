@@ -37,7 +37,7 @@ func ResilientFetch(req *http.Request) (*http.Response, error) {
 			}
 			return resp, nil
 		}
-		timedOut := errors.Is(err, http.ErrHandlerTimeout) || isTimeout(err)
+		timedOut := isTimeout(err)
 		if method == http.MethodGet && attempt < httpMaxAttem && (timedOut || isTransient(err)) {
 			time.Sleep(delayFor(attempt))
 			continue
@@ -62,7 +62,7 @@ func isTimeout(err error) bool {
 	return errors.As(err, &ne) && ne.Timeout()
 }
 
-// Stalls and refused connections surface as connection errors (not timeouts)
+// Stalls and refused connections surface as net.Errors (timeouts included)
 // — safe to retry for GET.
 func isTransient(err error) bool {
 	var ne net.Error
@@ -70,11 +70,7 @@ func isTransient(err error) bool {
 		return true
 	}
 	var dns *net.DNSError
-	if errors.As(err, &dns) {
-		return true
-	}
-	var op *net.OpError
-	return errors.As(err, &op)
+	return errors.As(err, &dns)
 }
 
 func cloneRequest(r *http.Request) *http.Request {

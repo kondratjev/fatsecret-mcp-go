@@ -3,6 +3,7 @@ package platform
 import (
 	"fmt"
 	"math"
+	"strconv"
 	"strings"
 )
 
@@ -20,8 +21,7 @@ type Serving struct {
 func round3(n float64) float64 { return math.Round(n*1000) / 1000 }
 
 func parseNum(s string) float64 {
-	var n float64
-	fmt.Sscanf(strings.TrimSpace(s), "%g", &n)
+	n, _ := strconv.ParseFloat(strings.TrimSpace(s), 64)
 	return n
 }
 
@@ -109,8 +109,7 @@ func ChooseServing(servings []Serving, servingID *int, numberOfUnits *float64, g
 			return 0, 0, fmt.Errorf("no gram-based serving for this food; pass serving_id instead")
 		}
 		units := (*grams / parseNum(pick.MetricServingAmount)) * max1(parseNum(pick.NumberOfUnits))
-		var id int
-		fmt.Sscanf(pick.ServingID, "%d", &id)
+		id, _ := strconv.Atoi(pick.ServingID)
 		return id, round3(units), nil
 	}
 	var pick *Serving
@@ -126,8 +125,7 @@ func ChooseServing(servings []Serving, servingID *int, numberOfUnits *float64, g
 	if pick == nil {
 		return 0, 0, fmt.Errorf("food has no servings")
 	}
-	var id int
-	fmt.Sscanf(pick.ServingID, "%d", &id)
+	id, _ := strconv.Atoi(pick.ServingID)
 	n := 1.0
 	if numberOfUnits != nil {
 		n = *numberOfUnits

@@ -54,7 +54,15 @@ func serveHTTP(s *api.Server, port int) error {
 	stateless := mcp.NewStreamableHTTPHandler(func(*http.Request) *mcp.Server { return s.MCP() }, &mcp.StreamableHTTPOptions{Stateless: true})
 	mux.Handle("/mcp", stateless)
 	log.Printf("FatSecret MCP server listening on :%d", port)
-	return http.ListenAndServe(":"+strconv.Itoa(port), mux)
+	srv := &http.Server{
+		Addr:              ":" + strconv.Itoa(port),
+		Handler:           mux,
+		ReadHeaderTimeout: 5 * time.Second,
+		ReadTimeout:       10 * time.Second,
+		WriteTimeout:      30 * time.Second,
+		IdleTimeout:       time.Minute,
+	}
+	return srv.ListenAndServe()
 }
 
 func main() {

@@ -193,14 +193,11 @@ func parseAPIResponse(resp *http.Response) (any, bool) {
 	defer resp.Body.Close()
 	body, _ := io.ReadAll(resp.Body)
 	var data any
-	if err := json.Unmarshal(body, &data); err != nil {
+	if json.Unmarshal(body, &data) != nil || data == nil {
 		data = map[string]any{"error": map[string]any{"status": resp.StatusCode, "message": string(body)}}
+		return data, true
 	}
-	failed := data == nil && (resp.StatusCode < 200 || resp.StatusCode >= 300)
-	if data == nil {
-		data = map[string]any{"error": map[string]any{"status": resp.StatusCode, "message": string(body)}}
-	}
-	return data, failed
+	return data, false
 }
 
 // publicGET: OAuth2 GET call with format=json.
