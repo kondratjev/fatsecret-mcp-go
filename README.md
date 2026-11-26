@@ -4,6 +4,7 @@
 [![MCP](https://img.shields.io/badge/MCP-2025--06--18-7C3AED)](https://modelcontextprotocol.io/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Tools](https://img.shields.io/badge/tools-56-brightgreen)](README.md#%EF%B8%8F-available-tools)
+[![Glama](https://glama.ai/mcp/servers/kondratjev/fatsecret-mcp-go/badges/score.svg)](https://glama.ai/mcp/servers/kondratjev/fatsecret-mcp-go)
 
 > [!IMPORTANT]
 > This is **not an official MCP server** by FatSecret.
