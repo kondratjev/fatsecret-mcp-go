@@ -32,19 +32,18 @@ Built on the official [`modelcontextprotocol/go-sdk`](https://github.com/modelco
 
 ## 🏆 Why this server
 
-Comparison as of November 2026. The official server is described in
+Comparison as of November 2026, based on public Glama listings. The official server is described in
 [FatSecret's own docs](https://platform.fatsecret.com/docs/guides/mcp-server).
 
-|                                  | This server                                      | Official `mcp.fatsecret.com` | Typical community servers  |
-| -------------------------------- | ------------------------------------------------ | ---------------------------- | -------------------------- |
-| Tools                            | 56                                               | 4                            | ~5–15                      |
-| Diary / weight / exercise writes | ✅ full                                          | ❌ read-only                 | ⚠️ partial                 |
-| Recipes, NLP, image recognition  | ✅                                               | ❌                           | ⚠️ rarely                  |
-| Works on a free API key          | ✅ (v6 → v1 fallback)                            | ❌ Premier only              | depends                    |
-| Self-hosted (binary / Docker)    | ✅                                               | ❌ hosted seats              | ✅                         |
-| stdio + Streamable HTTP          | ✅                                               | remote only                  | usually stdio only         |
-| Draft → confirm for writes       | ✅ (+ strict `FATSECRET_REQUIRE_CONFIRM=1` mode) | —                            | rarely                     |
-| Self-contained binary            | ✅ ~14 MB, ~10 MB RAM, no runtime                | ❌ hosted seats              | ⚠️ usually needs a runtime |
+|                                  | This server                    | Official `mcp.fatsecret.com` | Strongest community alternatives      |
+| -------------------------------- | ------------------------------ | ---------------------------- | ------------------------------------- |
+| Tools                            | 56                             | 4                            | 44 / 39 / 28 (best three)             |
+| Diary / weight / exercise writes | ✅ full                        | ❌ read-only                 | ✅ (all three)                        |
+| Write confirmation               | ✅ draft→confirm + strict mode | —                            | ✅ two of them (prepare/commit style) |
+| Multi-user household             | ✅ `X-MCP-User` header         | ❌ one seat per person       | ✅ one of them                        |
+| Works on a free API key          | ✅ (v6 → v1 fallback)          | ❌ Premier only              | varies by server                      |
+| Single binary, no runtime        | ✅ Go, ~14 MB, ~10 MB RAM      | ❌ hosted seats              | ❌ Python/JS runtimes                 |
+| stdio + Streamable HTTP          | ✅                             | remote only                  | ✅ one of them, varies otherwise      |
 
 Endpoints covered here that neither the official server nor — to our
 knowledge — any community server exposes: `create_food_feedback`,
