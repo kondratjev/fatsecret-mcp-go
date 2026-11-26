@@ -11,7 +11,7 @@
 
 An MCP (Model Context Protocol) server that connects Claude/Cursor to the [FatSecret Platform API](https://platform.fatsecret.com/). Search foods, track your diet, manage recipes, and monitor weight directly from your AI assistant.
 
-Single static binary (~14 MB, ~10 MB RAM) — no Node.js, no runtime. 56 tools, config in `~/.fatsecret-mcp/config.json`.
+56 tools, config in `~/.fatsecret-mcp/config.json`.
 
 Built on the official [`modelcontextprotocol/go-sdk`](https://github.com/modelcontextprotocol/go-sdk).
 
@@ -27,6 +27,27 @@ Built on the official [`modelcontextprotocol/go-sdk`](https://github.com/modelco
 - ⚖️ **Weight Tracking** — Record and view weight history
 - 🏃‍♂️ **Exercise Tracking** — View exercises and manage activity entries
 - ⭐ **Favorites** — Manage favorite foods and recipes
+
+## 🏆 Why this server
+
+Comparison as of November 2026. The official server is described in
+[FatSecret's own docs](https://platform.fatsecret.com/docs/guides/mcp-server).
+
+|                                  | This server                                      | Official `mcp.fatsecret.com` | Typical community servers  |
+| -------------------------------- | ------------------------------------------------ | ---------------------------- | -------------------------- |
+| Tools                            | 56                                               | 4                            | ~5–15                      |
+| Diary / weight / exercise writes | ✅ full                                          | ❌ read-only                 | ⚠️ partial                 |
+| Recipes, NLP, image recognition  | ✅                                               | ❌                           | ⚠️ rarely                  |
+| Works on a free API key          | ✅ (v6 → v1 fallback)                            | ❌ Premier only              | depends                    |
+| Self-hosted (binary / Docker)    | ✅                                               | ❌ hosted seats              | ✅                         |
+| stdio + Streamable HTTP          | ✅                                               | remote only                  | usually stdio only         |
+| Draft → confirm for writes       | ✅ (+ strict `FATSECRET_REQUIRE_CONFIRM=1` mode) | —                            | rarely                     |
+| Self-contained binary            | ✅ ~14 MB, ~10 MB RAM, no runtime                | ❌ hosted seats              | ⚠️ usually needs a runtime |
+
+Endpoints covered here that neither the official server nor — to our
+knowledge — any community server exposes: `create_food_feedback`,
+`get_food_classification_levels`, `commit_exercise_day`,
+`create_profile` / `get_profile_auth`.
 
 ## 🚀 Quick Start
 
