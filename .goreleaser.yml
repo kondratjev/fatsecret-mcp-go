@@ -1,0 +1,47 @@
+version: 2
+
+project_name: fatsecret-mcp
+
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - main: ./cmd/fatsecret-mcp
+    binary: fatsecret-mcp
+    goos: [darwin, linux, windows]
+    goarch: [amd64, arm64]
+    ignore:
+      - goos: windows
+        goarch: arm64
+    ldflags:
+      - -s -w -X main.version={{.Version}}
+    env:
+      - CGO_ENABLED=0
+
+archives:
+  - name_template: "{{ .ProjectName }}_{{ .Os }}_{{ .Arch }}"
+    format_overrides:
+      - goos: windows
+        format: zip
+
+checksum:
+  name_template: checksums.txt
+
+changelog:
+  sort: asc
+  use: github
+
+dockers:
+  - image_templates:
+      - "ghcr.io/kondratjev/fatsecret-mcp-go:{{ .Version }}"
+      - "ghcr.io/kondratjev/fatsecret-mcp-go:latest"
+    dockerfile: Dockerfile
+    use: buildx
+    build_flag_templates:
+      - "--build-arg=VERSION={{ .Version }}"
+
+release:
+  github:
+    owner: kondratjev
+    name: fatsecret-mcp-go

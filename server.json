@@ -1,0 +1,46 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.kondratjev/fatsecret-mcp-go",
+  "title": "FatSecret",
+  "description": "Full-coverage FatSecret MCP server: 56 tools for food, diary, weight and exercise.",
+  "repository": {
+    "url": "https://github.com/kondratjev/fatsecret-mcp-go",
+    "source": "github"
+  },
+  "version": "0.1.0",
+  "packages": [
+    {
+      "registryType": "oci",
+      "registryBaseUrl": "https://ghcr.io",
+      "identifier": "ghcr.io/kondratjev/fatsecret-mcp-go",
+      "version": "0.1.0",
+      "runtimeHint": "docker",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "name": "FATSECRET_CLIENT_ID",
+          "description": "FatSecret API client ID (platform.fatsecret.com → My Account → API Keys)",
+          "isRequired": true,
+          "isSecret": true,
+          "format": "string"
+        },
+        {
+          "name": "FATSECRET_CLIENT_SECRET",
+          "description": "FatSecret API client secret",
+          "isRequired": true,
+          "isSecret": true,
+          "format": "string"
+        },
+        {
+          "name": "FATSECRET_CONSUMER_SECRET",
+          "description": "Consumer secret for the OAuth1 profile flow (usually same as client secret)",
+          "isRequired": false,
+          "isSecret": true,
+          "format": "string"
+        }
+      ]
+    }
+  ]
+}

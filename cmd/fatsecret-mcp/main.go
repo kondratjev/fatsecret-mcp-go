@@ -15,7 +15,7 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
-const version = "0.0.10"
+var version = "dev" // stamped by GoReleaser via -ldflags -X main.version=…
 
 const instructions = `FatSecret MCP server provides two levels of access:
 

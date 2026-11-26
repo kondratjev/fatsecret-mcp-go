@@ -57,6 +57,16 @@ Build the binary (Go 1.27+):
 go build -o fatsecret-mcp ./cmd/fatsecret-mcp
 ```
 
+Or grab a ready binary / Docker image from
+[Releases](https://github.com/kondratjev/fatsecret-mcp-go/releases):
+
+```bash
+docker run -i --rm \
+  -e FATSECRET_CLIENT_ID=... \
+  -e FATSECRET_CLIENT_SECRET=... \
+  ghcr.io/kondratjev/fatsecret-mcp-go:latest
+```
+
 Add to your MCP client configuration:
 
 ```json
