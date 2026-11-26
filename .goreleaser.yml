@@ -36,10 +36,8 @@ dockers:
   - image_templates:
       - "ghcr.io/kondratjev/fatsecret-mcp-go:{{ .Version }}"
       - "ghcr.io/kondratjev/fatsecret-mcp-go:latest"
-    dockerfile: Dockerfile
+    dockerfile: Dockerfile.goreleaser
     use: buildx
-    build_flag_templates:
-      - "--build-arg=VERSION={{ .Version }}"
 
 release:
   github:

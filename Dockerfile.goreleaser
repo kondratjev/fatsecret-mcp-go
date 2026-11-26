@@ -1,0 +1,13 @@
+# Release image for GoReleaser: the binary is already built by the `builds`
+# section, so this Dockerfile only packs it into the runtime layer.
+# (Deploy builds from source via Dockerfile; keep the two in sync.)
+FROM alpine:3.21
+RUN apk add --no-cache tzdata ca-certificates && mkdir -p /home/app/.fatsecret-mcp
+ENV HOME=/home/app
+WORKDIR /app
+COPY fatsecret-mcp /app/fatsecret-mcp
+# Profile tokens live in ~/.fatsecret-mcp/config.json; mount it as a volume
+VOLUME /home/app/.fatsecret-mcp
+ENV PORT=8000
+EXPOSE 8000
+ENTRYPOINT ["/app/fatsecret-mcp"]
