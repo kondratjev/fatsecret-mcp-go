@@ -1,0 +1,16 @@
+name: Feature request
+description: Propose a new tool or improvement
+labels: [enhancement]
+body:
+  - type: textarea
+    id: idea
+    attributes:
+      label: What should it do?
+      description: Which FatSecret endpoint or behavior is missing, and how should the tool look?
+    validations:
+      required: true
+  - type: input
+    id: docs
+    attributes:
+      label: API docs link
+      description: Link to the FatSecret doc page for the endpoint, if any.

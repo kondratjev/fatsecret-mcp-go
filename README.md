@@ -1,5 +1,10 @@
 # FatSecret MCP Server (Go) <img src="https://cdn.prod.website-files.com/6854cb4b7a1b8e39612d89cf/685543fddca41e9e9ce5ae5f_fatsecret_logo-op.png" alt="FatSecret Logo" height="28" />
 
+[![Go](https://img.shields.io/badge/Go-1.27-00ADD8?logo=go)](go.mod)
+[![MCP](https://img.shields.io/badge/MCP-2025--06--18-7C3AED)](https://modelcontextprotocol.io/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Tools](https://img.shields.io/badge/tools-54-brightgreen)](README.md#%EF%B8%8F-available-tools)
+
 > [!IMPORTANT]
 > This is **not an official MCP server** by FatSecret.
 > It uses the [FatSecret Platform API](https://platform.fatsecret.com/) which requires a free developer account.
