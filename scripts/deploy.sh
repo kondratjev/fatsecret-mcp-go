@@ -12,4 +12,5 @@ git push origin "$BRANCH"
 # VPS copy is a clean mirror: local edits there are discarded (.env and ./data are
 # git-ignored, so config and tokens survive). --build picks up the actual version.
 # Picks docker compose v2 or legacy docker-compose, whichever exists on the server.
-ssh "$VPS_SSH" "cd '$VPS_DIR' && git fetch origin && git checkout '$BRANCH' && git reset --hard 'origin/$BRANCH' && if docker compose version >/dev/null 2>&1; then DC='docker compose'; else DC='docker-compose'; fi && \$DC up -d --build && \$DC ps"
+# DOCKER_BUILDKIT=1: the Dockerfile uses cache mounts, which need BuildKit.
+ssh "$VPS_SSH" "cd '$VPS_DIR' && git fetch origin && git checkout '$BRANCH' && git reset --hard 'origin/$BRANCH' && export DOCKER_BUILDKIT=1 COMPOSE_DOCKER_CLI_BUILD=1 && if docker compose version >/dev/null 2>&1; then DC='docker compose'; else DC='docker-compose'; fi && \$DC up -d --build && \$DC ps"

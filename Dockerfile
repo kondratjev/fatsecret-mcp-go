@@ -4,7 +4,10 @@ WORKDIR /src
 COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
-RUN CGO_ENABLED=0 go build -trimpath -o /fatsecret-mcp ./cmd/fatsecret-mcp
+# BuildKit cache mounts keep the module + compile caches across rebuilds:
+# without them every deploy recompiles stdlib and deps from scratch.
+RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build \
+    CGO_ENABLED=0 go build -trimpath -o /fatsecret-mcp ./cmd/fatsecret-mcp
 
 FROM alpine:3.21
 RUN apk add --no-cache tzdata ca-certificates && mkdir -p /home/app/.fatsecret-mcp
