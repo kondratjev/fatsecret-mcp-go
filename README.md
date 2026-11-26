@@ -320,6 +320,12 @@ Caddy issues HTTPS automatically and proxies only `https://<DOMAIN>/<MCP_SECRET>
 
 Profile tokens persist in `./data`, so `setup_credentials` and favorites survive restarts and rebuilds.
 
+### 👨‍👩‍👧 Multi-user (household)
+
+One server can serve several people: over HTTP, the `X-MCP-User` header selects the member (any string, e.g. `anna`). Each member authorizes separately — `start_auth` → `complete_auth` under their own header — and tokens are stored per user in the config file. `check_auth_status` reports the current `user`. Requests without the header (and all stdio clients) use the default member.
+
+Note: remote connectors that can't send custom headers (ChatGPT) only reach the default member — multi-user needs a client with header support (Claude, OpenCode, direct HTTP).
+
 ### 🚀 Deploy to VPS
 
 Single source of truth is this repo — never edit code on the server. The server copy is a clean mirror (`git reset --hard`; `.env` and `./data` are git-ignored and survive).
