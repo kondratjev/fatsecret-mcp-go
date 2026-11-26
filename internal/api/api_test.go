@@ -66,7 +66,7 @@ func TestEnsureAPI(t *testing.T) {
 	if err := s.EnsureAPI(); err == nil {
 		t.Fatal("EnsureAPI should fail without creds")
 	}
-	if err := s.CompleteAuth("v"); err == nil {
+	if err := s.CompleteAuth(context.Background(), "v"); err == nil {
 		t.Fatal("CompleteAuth should fail without pending flow")
 	}
 	if _, err := s.GetOAuth2Token(context.Background()); err == nil {
@@ -96,5 +96,23 @@ func TestGetOAuth2TokenCacheHit(t *testing.T) {
 	s.oauth2Scope = "basic premier"
 	if !s.HasPremierScope() {
 		t.Fatal("basic premier should claim premier")
+	}
+}
+
+func TestMultiUserPendingIsolation(t *testing.T) {
+	s := &Server{}
+	s.SetCredentials("id", "secret", "consumer")
+	alice := WithUser(context.Background(), "alice")
+	bob := WithUser(context.Background(), "bob")
+	s.SetPending(alice, "tok-a", "sec-a")
+	if err := s.CompleteAuth(bob, "v"); err == nil {
+		t.Fatal("bob must not see alice's pending flow")
+	}
+	if s.HasProfileTokens(alice) || s.HasProfileTokens(bob) {
+		t.Fatal("no user should have tokens yet")
+	}
+	// Default user is unaffected by named users.
+	if UserID(context.Background()) != "" || UserID(alice) != "alice" {
+		t.Fatal("UserID extraction broken")
 	}
 }

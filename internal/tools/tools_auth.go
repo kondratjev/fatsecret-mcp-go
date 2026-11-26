@@ -21,7 +21,7 @@ type completeAuthInput struct {
 
 func handleCheckAuthStatus(s *api.Server, ctx context.Context, req *mcp.CallToolRequest, in emptyInput) (*mcp.CallToolResult, any, error) {
 	hasCreds := s.HasAPI()
-	hasTokens := s.HasProfileTokens()
+	hasTokens := s.HasProfileTokens(ctx)
 	path, _ := config.Path()
 	if !hasCreds {
 		return api.ToolResult(map[string]any{
@@ -37,20 +37,28 @@ func handleCheckAuthStatus(s *api.Server, ctx context.Context, req *mcp.CallTool
 	if hasTokens {
 		msg = "Fully configured. API credentials and profile authentication are ready. All tools are available."
 	}
-	return api.ToolResult(map[string]any{
+	out := map[string]any{
 		"credentials_configured": true,
 		"profile_authenticated":  hasTokens,
 		"config_path":            path,
 		"message":                msg,
-	}, false)
+	}
+	if user := api.UserID(ctx); user != "" {
+		out["user"] = user
+	}
+	return api.ToolResult(out, false)
 }
 
 func handleSetupCredentials(s *api.Server, ctx context.Context, req *mcp.CallToolRequest, in setupCredentialsInput) (*mcp.CallToolResult, any, error) {
 	s.SetCredentials(in.ClientID, in.ClientSecret, in.ConsumerSecret)
 	if err := config.Save(map[string]string{
 		"clientId": in.ClientID, "clientSecret": in.ClientSecret,
-		"consumerSecret": in.ConsumerSecret, "accessToken": "", "accessTokenSecret": "",
+		"consumerSecret": in.ConsumerSecret,
 	}); err != nil {
+		return api.ToolResult(map[string]any{"error": map[string]any{"message": err.Error()}}, true)
+	}
+	// Fresh keys invalidate every stored user authorization.
+	if err := config.ClearAllTokens(); err != nil {
 		return api.ToolResult(map[string]any{"error": map[string]any{"message": err.Error()}}, true)
 	}
 	path, _ := config.Path()
@@ -70,7 +78,7 @@ func handleStartAuth(s *api.Server, ctx context.Context, req *mcp.CallToolReques
 	if err != nil {
 		return api.ToolResult(map[string]any{"error": map[string]any{"message": err.Error()}}, true)
 	}
-	s.SetPending(token, secret)
+	s.SetPending(ctx, token, secret)
 	return api.ToolResult(map[string]any{
 		"message": "Visit the URL below to authorize the app, then use complete_auth with the verifier code.",
 		// NB: must not end in _url — ToolResult drops *_url keys to save tokens.
@@ -79,7 +87,7 @@ func handleStartAuth(s *api.Server, ctx context.Context, req *mcp.CallToolReques
 }
 
 func handleCompleteAuth(s *api.Server, ctx context.Context, req *mcp.CallToolRequest, in completeAuthInput) (*mcp.CallToolResult, any, error) {
-	if err := s.CompleteAuth(in.Verifier); err != nil {
+	if err := s.CompleteAuth(ctx, in.Verifier); err != nil {
 		return api.ToolResult(map[string]any{"error": map[string]any{"message": err.Error()}}, true)
 	}
 	path, _ := config.Path()

@@ -23,23 +23,30 @@ import (
 
 const baseURL = "https://platform.fatsecret.com/rest"
 
-// Server holds auth state: OAuth2 token cache (scope known after first
-// request), OAuth1 credentials, and the pending 3-legged flow.
+// Server holds auth state: shared OAuth2 token cache (scope known after first
+// request), app-level OAuth1 consumer credentials, and per-user OAuth1 tokens
+// with their pending 3-legged flows. The user comes from the request context
+// (X-MCP-User header over HTTP, default user over stdio).
 type Server struct {
 	mcp *mcp.Server
 
-	mu           sync.Mutex
-	clientID     string
-	clientSecret string
+	mu             sync.Mutex
+	clientID       string
+	clientSecret   string
+	consumerKey    string
+	consumerSecret string
+	users          map[string]*userAuth
+	oauth2Access   string
+	oauth2Expiry   time.Time
+	oauth2Scope    string
+	oauth2Known    bool
+	oauth2Group    singleflight.Group
+}
 
-	oauth2Access string
-	oauth2Expiry time.Time
-	oauth2Scope  string
-	oauth2Known  bool
-	oauth2Group  singleflight.Group
-
-	oauth1  auth.OAuth1Credentials
-	pending *oauthPending
+type userAuth struct {
+	accessToken       string
+	accessTokenSecret string
+	pending           *oauthPending
 }
 
 type oauthPending struct {
@@ -47,25 +54,65 @@ type oauthPending struct {
 	secret string
 }
 
+// ctxUserKey carries the household member id. Empty = default user.
+type ctxUserKey struct{}
+
+// WithUser returns a context bound to the given household member.
+func WithUser(ctx context.Context, id string) context.Context {
+	return context.WithValue(ctx, ctxUserKey{}, id)
+}
+
+// userID extracts the household member id from the context ("", if none).
+func userID(ctx context.Context) string {
+	return UserID(ctx)
+}
+
+// UserID extracts the household member id from the context ("", if none).
+func UserID(ctx context.Context) string {
+	if id, _ := ctx.Value(ctxUserKey{}).(string); id != "" {
+		return id
+	}
+	return ""
+}
+
 func New(mcpServer *mcp.Server) *Server {
 	cfg := config.Resolve()
-	return &Server{
-		mcp:          mcpServer,
-		clientID:     cfg.ClientID,
-		clientSecret: cfg.ClientSecret,
-		oauth1: auth.OAuth1Credentials{
-			ConsumerKey:       cfg.ClientID,
-			ConsumerSecret:    cfg.ConsumerSecret,
-			AccessToken:       cfg.AccessToken,
-			AccessTokenSecret: cfg.AccessTokenSecret,
-		},
+	s := &Server{
+		mcp:            mcpServer,
+		clientID:       cfg.ClientID,
+		clientSecret:   cfg.ClientSecret,
+		consumerKey:    cfg.ClientID,
+		consumerSecret: cfg.ConsumerSecret,
+		users:          map[string]*userAuth{},
 	}
+	s.users[""] = &userAuth{accessToken: cfg.AccessToken, accessTokenSecret: cfg.AccessTokenSecret}
+	for name, p := range cfg.Profiles {
+		s.users[name] = &userAuth{accessToken: p.AccessToken, accessTokenSecret: p.AccessTokenSecret}
+	}
+	return s
+}
+
+// user returns the state for the context's household member, creating it
+// lazily. Callers must not hold s.mu while using the result.
+func (s *Server) user(ctx context.Context) *userAuth {
+	id := userID(ctx)
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	u, ok := s.users[id]
+	if !ok {
+		u = &userAuth{}
+		if s.users == nil {
+			s.users = map[string]*userAuth{}
+		}
+		s.users[id] = u
+	}
+	return u
 }
 
 func (s *Server) HasAPI() bool {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	return s.clientID != "" && s.clientSecret != "" && s.oauth1.ConsumerSecret != ""
+	return s.clientID != "" && s.clientSecret != "" && s.consumerSecret != ""
 }
 
 func (s *Server) EnsureAPI() error {
@@ -121,13 +168,17 @@ func (s *Server) GetOAuth2Token(ctx context.Context) (string, error) {
 	return v.(string), nil
 }
 
-func (s *Server) ensureProfileAuth() error {
+func (s *Server) ensureProfileAuth(ctx context.Context) error {
 	if err := s.EnsureAPI(); err != nil {
 		return err
 	}
+	u := s.user(ctx)
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if s.oauth1.AccessToken == "" || s.oauth1.AccessTokenSecret == "" {
+	if u.accessToken == "" || u.accessTokenSecret == "" {
+		if id := userID(ctx); id != "" {
+			return fmt.Errorf("user %q is not authenticated for profile access. Use start_auth and complete_auth to authorize this user (each household member authorizes separately)", id)
+		}
 		return fmt.Errorf("not authenticated for profile access. Use check_auth_status to check, then start_auth and complete_auth to authorize")
 	}
 	return nil
@@ -238,15 +289,21 @@ func (s *Server) PostPublicJSON(ctx context.Context, path string, body any) (any
 
 // profileRequest: OAuth1-signed call, params in the query string.
 func (s *Server) ProfileRequest(ctx context.Context, method, path string, query map[string]string) (any, bool) {
-	if err := s.ensureProfileAuth(); err != nil {
+	if err := s.ensureProfileAuth(ctx); err != nil {
 		return map[string]any{"error": map[string]any{"message": err.Error()}}, true
 	}
 	if query == nil {
 		query = map[string]string{}
 	}
 	query["format"] = "json"
+	u := s.user(ctx)
 	s.mu.Lock()
-	creds := s.oauth1
+	creds := auth.OAuth1Credentials{
+		ConsumerKey:       s.consumerKey,
+		ConsumerSecret:    s.consumerSecret,
+		AccessToken:       u.accessToken,
+		AccessTokenSecret: u.accessTokenSecret,
+	}
 	s.mu.Unlock()
 	signed := auth.BuildOAuth1Params(method, baseURL+path, creds, query)
 	req, _ := http.NewRequestWithContext(ctx, method, baseURL+path+"?"+encodeQuery(signed), nil)
@@ -275,11 +332,12 @@ func (s *Server) EnsureScope(ctx context.Context, scope, feature string) error {
 // MCP exposes the underlying MCP server for tool registration and serving.
 func (s *Server) MCP() *mcp.Server { return s.mcp }
 
-// HasProfileTokens reports whether OAuth1 user tokens are present.
-func (s *Server) HasProfileTokens() bool {
+// HasProfileTokens reports whether the context's user has OAuth1 user tokens.
+func (s *Server) HasProfileTokens(ctx context.Context) bool {
+	u := s.user(ctx)
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	return s.oauth1.AccessToken != "" && s.oauth1.AccessTokenSecret != ""
+	return u.accessToken != "" && u.accessTokenSecret != ""
 }
 
 // HasPremierScope reports whether the cached OAuth2 scope includes premier.
@@ -289,40 +347,44 @@ func (s *Server) HasPremierScope() bool {
 	return auth.HasPremierScope(s.oauth2Scope)
 }
 
-// SetCredentials replaces API keys and clears cached auth state.
+// SetCredentials replaces API keys and clears cached auth state for all users.
 func (s *Server) SetCredentials(clientID, clientSecret, consumerSecret string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.clientID = clientID
 	s.clientSecret = clientSecret
-	s.oauth1.ConsumerKey = clientID
-	s.oauth1.ConsumerSecret = consumerSecret
+	s.consumerKey = clientID
+	s.consumerSecret = consumerSecret
 	s.oauth2Access = ""
 	s.oauth2Known = false
-	s.oauth1.AccessToken = ""
-	s.oauth1.AccessTokenSecret = ""
-	s.pending = nil
+	s.users = map[string]*userAuth{}
 }
 
 // ConsumerCredentials returns the OAuth1 consumer key/secret for the 3-legged flow.
 func (s *Server) ConsumerCredentials() (key, secret string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	return s.oauth1.ConsumerKey, s.oauth1.ConsumerSecret
+	return s.consumerKey, s.consumerSecret
 }
 
 // SetPending stores the request-token pair awaiting user authorization.
-func (s *Server) SetPending(token, secret string) {
+func (s *Server) SetPending(ctx context.Context, token, secret string) {
+	u := s.user(ctx)
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.pending = &oauthPending{token: token, secret: secret}
+	u.pending = &oauthPending{token: token, secret: secret}
 }
 
-// CompleteAuth exchanges the verifier for access tokens and persists them.
-func (s *Server) CompleteAuth(verifier string) error {
+// CompleteAuth exchanges the verifier for access tokens and persists them
+// for the context's user.
+func (s *Server) CompleteAuth(ctx context.Context, verifier string) error {
+	u := s.user(ctx)
 	s.mu.Lock()
-	pending := s.pending
-	creds := s.oauth1
+	pending := u.pending
+	creds := auth.OAuth1Credentials{
+		ConsumerKey:    s.consumerKey,
+		ConsumerSecret: s.consumerSecret,
+	}
 	s.mu.Unlock()
 	if pending == nil {
 		return fmt.Errorf("No pending OAuth flow. Call start_auth first.")
@@ -331,13 +393,13 @@ func (s *Server) CompleteAuth(verifier string) error {
 	if err != nil {
 		return err
 	}
-	if err := config.Save(map[string]string{"accessToken": access, "accessTokenSecret": secret}); err != nil {
+	if err := config.SaveProfileTokens(userID(ctx), config.ProfileTokens{AccessToken: access, AccessTokenSecret: secret}); err != nil {
 		return err
 	}
 	s.mu.Lock()
-	s.oauth1.AccessToken = access
-	s.oauth1.AccessTokenSecret = secret
-	s.pending = nil
+	u.accessToken = access
+	u.accessTokenSecret = secret
+	u.pending = nil
 	s.mu.Unlock()
 	return nil
 }

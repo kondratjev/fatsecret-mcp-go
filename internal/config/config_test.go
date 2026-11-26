@@ -30,3 +30,37 @@ func TestSaveAndResolve(t *testing.T) {
 		t.Fatalf("empty save should delete key: %+v", cfg)
 	}
 }
+
+func TestSaveProfileTokensRoundTrip(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("FATSECRET_CLIENT_ID", "")
+	t.Setenv("FATSECRET_CLIENT_SECRET", "")
+	t.Setenv("FATSECRET_CONSUMER_SECRET", "")
+	if err := Save(map[string]string{"clientId": "id"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := SaveProfileTokens("", ProfileTokens{AccessToken: "t0", AccessTokenSecret: "s0"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := SaveProfileTokens("alice", ProfileTokens{AccessToken: "ta", AccessTokenSecret: "sa"}); err != nil {
+		t.Fatal(err)
+	}
+	cfg := Resolve()
+	if cfg.AccessToken != "t0" || cfg.Profiles["alice"].AccessToken != "ta" {
+		t.Fatalf("round trip failed: %+v", cfg)
+	}
+	// Unknown keys (and the profiles object) survive a flat Save.
+	if err := Save(map[string]string{"clientId": "id2"}); err != nil {
+		t.Fatal(err)
+	}
+	cfg = Resolve()
+	if cfg.ClientID != "id2" || cfg.Profiles["alice"].AccessTokenSecret != "sa" {
+		t.Fatalf("flat Save wiped nested data: %+v", cfg)
+	}
+	if err := SaveProfileTokens("alice", ProfileTokens{}); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := Resolve().Profiles["alice"]; ok {
+		t.Fatal("empty tokens should delete the profile")
+	}
+}

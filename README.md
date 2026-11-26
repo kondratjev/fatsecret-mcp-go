@@ -18,6 +18,7 @@ Built on the official [`modelcontextprotocol/go-sdk`](https://github.com/modelco
 ## ✨ Features
 
 - 🔐 **Authentication** — Interactive credential setup and OAuth authorization
+- 👨‍👩‍👧 **Multi-user** — `X-MCP-User` header over HTTP selects the household member; each authorizes separately, tokens stored per user in the config file
 - ✋ **Draft → confirm** — Stage any write with `prepare_call` (validated + human-readable preview), execute with `confirm_draft`. Set `FATSECRET_REQUIRE_CONFIRM=1` to block direct writes entirely
 - 🔍 **Food Search** — Search FatSecret's extensive food database with detailed nutrition data
 - 📷 **Barcode Lookup** — Find foods by GTIN-13 barcode

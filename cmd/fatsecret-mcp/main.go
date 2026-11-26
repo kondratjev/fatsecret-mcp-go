@@ -30,7 +30,9 @@ const instructions = `FatSecret MCP server provides two levels of access:
    These tools require OAuth 1.0 user authorization. Before using any profile tool,
    call check_auth_status to see if the user is authenticated.
    If not, guide them through: start_auth → user visits URL and authorizes → complete_auth with verifier PIN.
-   All credentials and tokens persist across sessions in ~/.fatsecret-mcp/config.json.`
+   All credentials and tokens persist across sessions in ~/.fatsecret-mcp/config.json.
+   Household: over HTTP, the X-MCP-User header selects the member (each authorizes
+   separately); stdio always uses the default member.`
 
 func buildServer() *api.Server {
 	ms := mcp.NewServer(&mcp.Implementation{Name: "fatsecret-mcp", Version: version}, &mcp.ServerOptions{
@@ -50,9 +52,16 @@ func serveHTTP(s *api.Server, port int) error {
 	mux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte("ok"))
 	})
-	// Stateless handler bound to our single server instance.
+	// Stateless handler bound to our single server instance. The X-MCP-User
+	// header selects the household member (each authorizes separately via
+	// start_auth/complete_auth); stdio clients always use the default user.
 	stateless := mcp.NewStreamableHTTPHandler(func(*http.Request) *mcp.Server { return s.MCP() }, &mcp.StreamableHTTPOptions{Stateless: true})
-	mux.Handle("/mcp", stateless)
+	mux.Handle("/mcp", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if user := r.Header.Get("X-MCP-User"); user != "" {
+			r = r.WithContext(api.WithUser(r.Context(), user))
+		}
+		stateless.ServeHTTP(w, r)
+	}))
 	log.Printf("FatSecret MCP server listening on :%d", port)
 	srv := &http.Server{
 		Addr:              ":" + strconv.Itoa(port),
