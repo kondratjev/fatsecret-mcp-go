@@ -17,6 +17,7 @@ func bind[In, Out any](s *api.Server, h func(*api.Server, context.Context, *mcp.
 // RegisterAll registers every FatSecret tool on the server.
 func RegisterAll(s *api.Server) {
 	registerPublicFoodTools(s)
+	registerFeedbackTools(s)
 	registerRecognitionTools(s)
 	registerRecipeTools(s)
 	registerReferenceTools(s)

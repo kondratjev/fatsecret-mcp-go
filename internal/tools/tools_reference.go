@@ -44,9 +44,15 @@ func handleGetRecipeTypes(s *api.Server, ctx context.Context, req *mcp.CallToolR
 	return api.ToolResult(data, failed)
 }
 
+func handleGetFoodClassificationLevels(s *api.Server, ctx context.Context, req *mcp.CallToolRequest, in emptyInput) (*mcp.CallToolResult, any, error) {
+	data, failed := s.PublicGET(ctx, "/food-classification-levels/v1", nil)
+	return api.ToolResult(data, failed)
+}
+
 func registerReferenceTools(s *api.Server) {
 	mcp.AddTool(s.MCP(), &mcp.Tool{Name: "get_food_categories", Description: "Get the full list of food categories. Premier exclusive.", Annotations: roRefTools()}, bind(s, handleGetFoodCategories))
 	mcp.AddTool(s.MCP(), &mcp.Tool{Name: "get_food_sub_categories", Description: "Get food sub categories for a given food category. Premier exclusive.", Annotations: roRefTools()}, bind(s, handleGetFoodSubCategories))
 	mcp.AddTool(s.MCP(), &mcp.Tool{Name: "get_brands", Description: "Get the list of food brands, optionally filtered by starting letter and type. Premier exclusive.", Annotations: roRefTools()}, bind(s, handleGetBrands))
 	mcp.AddTool(s.MCP(), &mcp.Tool{Name: "get_recipe_types", Description: "Get the full list of supported recipe type names.", Annotations: roRefTools()}, bind(s, handleGetRecipeTypes))
+	mcp.AddTool(s.MCP(), &mcp.Tool{Name: "get_food_classification_levels", Description: "Get the full food classification hierarchy (3 levels) used to resolve classification IDs in food.get and search_foods. Premier exclusive. Rarely changes, safe to cache.", Annotations: roRefTools()}, bind(s, handleGetFoodClassificationLevels))
 }

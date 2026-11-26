@@ -79,6 +79,15 @@ func handleSaveExerciseTemplate(s *api.Server, ctx context.Context, req *mcp.Cal
 	return api.ToolResult(data, failed)
 }
 
+func handleCommitExerciseDay(s *api.Server, ctx context.Context, req *mcp.CallToolRequest, in monthDateInput) (*mcp.CallToolResult, any, error) {
+	days, err := monthDays(in.Date)
+	if err != nil {
+		return api.ToolResult(map[string]any{"error": map[string]any{"message": err.Error()}}, true)
+	}
+	data, failed := s.ProfileRequest(ctx, "POST", "/exercise-entries/day/v1", map[string]string{"date": days})
+	return api.ToolResult(data, failed)
+}
+
 func registerExerciseTools(s *api.Server) {
 	ro := &mcp.ToolAnnotations{ReadOnlyHint: true, IdempotentHint: true}
 	const req = " Requires profile auth (check_auth_status first)."
@@ -87,4 +96,5 @@ func registerExerciseTools(s *api.Server) {
 	mcp.AddTool(s.MCP(), &mcp.Tool{Name: "edit_exercise_entries", Description: "Shift exercise time between activities for a date. Moves minutes from one exercise to another." + req, Annotations: writeTools(false)}, bind(s, handleEditExerciseEntries))
 	mcp.AddTool(s.MCP(), &mcp.Tool{Name: "get_exercise_entries_month", Description: "Get daily calories expended from exercise for a month." + req, Annotations: ro}, bind(s, handleGetExerciseEntriesMonth))
 	mcp.AddTool(s.MCP(), &mcp.Tool{Name: "save_exercise_template", Description: "Save the current day's exercise entries as a template for specified days of the week." + req, Annotations: writeTools(true)}, bind(s, handleSaveExerciseTemplate))
+	mcp.AddTool(s.MCP(), &mcp.Tool{Name: "commit_exercise_day", Description: "Commit the day's template exercise entries to the diary (acknowledge the activities as done)." + req, Annotations: writeTools(true)}, bind(s, handleCommitExerciseDay))
 }

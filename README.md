@@ -6,7 +6,7 @@
 
 An MCP (Model Context Protocol) server that connects Claude/Cursor to the [FatSecret Platform API](https://platform.fatsecret.com/). Search foods, track your diet, manage recipes, and monitor weight directly from your AI assistant.
 
-Single static binary (~14 MB, ~10 MB RAM) — no Node.js, no runtime. 49 tools, config in `~/.fatsecret-mcp/config.json`.
+Single static binary (~14 MB, ~10 MB RAM) — no Node.js, no runtime. 54 tools, config in `~/.fatsecret-mcp/config.json`.
 
 Built on the official [`modelcontextprotocol/go-sdk`](https://github.com/modelcontextprotocol/go-sdk).
 
@@ -172,6 +172,7 @@ Or point at your self-hosted server instead of a local binary:
 | **🤖 Recognition** _(paid add-ons)_ |                                                                            |
 | `parse_food_text`                   | Match a free-text meal description to foods and servings (NLP)             |
 | `recognize_food_image`              | Recognize foods in a meal photo (image recognition)                        |
+| `create_food_feedback`              | Report food/barcode data issues, get upload URLs (paid feedback add-on)    |
 |                                     |                                                                            |
 | **🍳 Recipes** _(public)_           |                                                                            |
 | `search_recipes`                    | Search recipes with filters                                                |
@@ -180,6 +181,7 @@ Or point at your self-hosted server instead of a local binary:
 | **📚 Reference** _(public)_         |                                                                            |
 | `get_food_categories`               | Get food categories                                                        |
 | `get_food_sub_categories`           | Get food sub categories                                                    |
+| `get_food_classification_levels`    | Get food classification hierarchy (Premier)                                |
 | `get_brands`                        | Get food brands                                                            |
 | `get_recipe_types`                  | Get recipe types                                                           |
 |                                     |                                                                            |
@@ -223,10 +225,13 @@ Or point at your self-hosted server instead of a local binary:
 | `edit_exercise_entries`             | Shift exercise time between activities                                     |
 | `get_exercise_entries_month`        | Get exercise data for a month                                              |
 | `save_exercise_template`            | Save exercise template for weekdays                                        |
+| `commit_exercise_day`               | Commit template entries for a date                                         |
 |                                     |                                                                            |
 | **👤 Profile** _(profile auth)_     |                                                                            |
 | `get_profile`                       | Get user profile info                                                      |
 | `create_food`                       | Create a custom food (Premier)                                             |
+| `create_profile`                    | Create a detached profile (returns tokens, no switch)                      |
+| `get_profile_auth`                  | Get auth tokens for a detached profile                                     |
 
 <sub>API reference: [FatSecret Postman Collection](https://www.postman.com/fatsecret/fatsecret-public-apis/)</sub>
 
@@ -296,7 +301,7 @@ This pushes the current branch, then on the server pulls it, rebuilds and restar
 │   ├── config/         # ~/.fatsecret-mcp/config.json + env overrides
 │   ├── httpx/          # resilientFetch: timeouts + GET-only retries
 │   ├── platform/       # dates, servings, scope-14 detection, search trimming
-│   └── tools/          # 49 tool definitions + handlers
+│   └── tools/          # 54 tool definitions + handlers
 ├── Dockerfile
 └── docker-compose.yml  # mcp + Caddy (HTTPS, secret path)
 ```
