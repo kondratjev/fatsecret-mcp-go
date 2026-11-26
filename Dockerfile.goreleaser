@@ -2,6 +2,8 @@
 # section, so this Dockerfile only packs it into the runtime layer.
 # (Deploy builds from source via Dockerfile; keep the two in sync.)
 FROM alpine:3.21
+# Required by the MCP registry: proves this image is the published server.
+LABEL io.modelcontextprotocol.server.name="io.github.kondratjev/fatsecret-mcp-go"
 RUN apk add --no-cache tzdata ca-certificates && mkdir -p /home/app/.fatsecret-mcp
 ENV HOME=/home/app
 WORKDIR /app

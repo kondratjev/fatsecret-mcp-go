@@ -11,6 +11,8 @@ RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache
     CGO_ENABLED=0 go build -trimpath -ldflags "-s -w -X main.version=$VERSION" -o /fatsecret-mcp ./cmd/fatsecret-mcp
 
 FROM alpine:3.21
+# Required by the MCP registry: proves this image is the published server.
+LABEL io.modelcontextprotocol.server.name="io.github.kondratjev/fatsecret-mcp-go"
 RUN apk add --no-cache tzdata ca-certificates && mkdir -p /home/app/.fatsecret-mcp
 ENV HOME=/home/app
 WORKDIR /app

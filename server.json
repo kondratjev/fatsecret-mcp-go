@@ -7,11 +7,11 @@
     "url": "https://github.com/kondratjev/fatsecret-mcp-go",
     "source": "github"
   },
-  "version": "0.1.0",
+  "version": "0.1.1",
   "packages": [
     {
       "registryType": "oci",
-      "identifier": "ghcr.io/kondratjev/fatsecret-mcp-go:0.1.0",
+      "identifier": "ghcr.io/kondratjev/fatsecret-mcp-go:0.1.1",
       "runtimeHint": "docker",
       "transport": {
         "type": "stdio"
